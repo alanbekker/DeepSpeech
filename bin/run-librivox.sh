@@ -6,7 +6,7 @@ if [ ! -f DeepSpeech.py ]; then
 fi;
 
 if [ ! -d "${ds_dataroot}" ]; then
-    ds_dataroot="data"
+    ds_dataroot="librivox"
 fi;
 
 # Warn if we can't find the train files
@@ -17,9 +17,9 @@ if [ ! -f "${ds_dataroot}/librivox-train-clean-100.csv" ]; then
          "importer script at bin/import_librivox.py before running this script."
 fi;
 
-checkpoint_dir=$(python -c 'from xdg import BaseDirectory as xdg; print(xdg.save_data_path("deepspeech/librivox"))')
+checkpoint_dir=$(python3 -c 'from xdg import BaseDirectory as xdg; print(xdg.save_data_path("deepspeech/librivox"))')
 
-python -u DeepSpeech.py \
+python3 -u DeepSpeech.py \
   --train_files "$ds_dataroot/librivox-train-clean-100.csv,$ds_dataroot/librivox-train-clean-360.csv,$ds_dataroot/librivox-train-other-500.csv" \
   --dev_files "$ds_dataroot/librivox-dev-clean.csv,$ds_dataroot/librivox-dev-other.csv" \
   --test_files "$ds_dataroot/librivox-test-clean.csv,$ds_dataroot/librivox-test-other.csv" \
@@ -27,10 +27,19 @@ python -u DeepSpeech.py \
   --dev_batch_size 12 \
   --test_batch_size 12 \
   --learning_rate 0.0001 \
-  --epoch 15 \
-  --display_step 5 \
-  --validation_step 5 \
+  --epoch 5 \
+  --display_step 1 \
+  --validation_step 1 \
   --dropout_rate 0.30 \
   --default_stddev 0.046875 \
-  --checkpoint_dir "$checkpoint_dir" \
+  --checkpoint_dir "/home/alan/Projects/DeepSpeech/logs/libribox/checkpoints" \
+  --log_level 0 \
+  --publish_wer_log True \
+  --wer_log_file "/home/alan/Projects/DeepSpeech/logs/libribox/WER/werlog.js" \
+  --export_dir "/home/alan/Projects/DeepSpeech/logs/libribox/export_models/"  \
+  --summary_dir "/home/alan/Projects/DeepSpeech/logs/libribox/summaries/"     \
+  # --limit_train 0 \
+  # --limit_dev 0 \
+  # --limit_test 0 \ 
+
   "$@"

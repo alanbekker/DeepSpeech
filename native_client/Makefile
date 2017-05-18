@@ -7,12 +7,13 @@
 ###
 ### Then cross-build:
 ### $ make -C native_client/ TARGET=rpi3 TFDIR=../../tensorflow/tensorflow/
-###
+### ARGS="~/Projects/DeepSpeech/logs/export_models/output_graph.pb  /home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" make run
+
 
 .PHONY: clean run bindings
 
 TARGET ?= host
-TFDIR  ?= ../../tensorflow
+TFDIR  ?= /home/alan/tensorflow
 CXX    ?= c++
 PREFIX ?= /usr/local
 
@@ -42,7 +43,7 @@ default: deepspeech
 
 clean:
 	rm -rf build dist deepspeech.egg-info
-	rm -f deepspeech setup.cfg python/deepspeech_wrap.cpp python/deepspeech.py
+	rm -f deepspeech setup.cfg python3/deepspeech_wrap.cpp python3/deepspeech.py
 
 deepspeech: client.cc
 	$(TOOLCHAIN)$(CXX) -o deepspeech $(CFLAGS) client.cc $(LDFLAGS)
@@ -51,7 +52,7 @@ setup.cfg: setup.cfg.in
 	sed -e 's:@LIBDIRS@:${TFDIR}/bazel-bin/tensorflow\:${TFDIR}/bazel-bin/native_client:g' setup.cfg.in > setup.cfg
 
 bindings: setup.cfg
-	python ./setup.py bdist_wheel
+	python3 ./setup.py bdist_wheel
 
 run: deepspeech
 	${META_LD_LIBRARY_PATH}=${TFDIR}/bazel-bin/tensorflow:${TFDIR}/bazel-bin/native_client:${${META_LD_LIBRARY_PATH}} ./deepspeech ${ARGS}

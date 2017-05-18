@@ -1,5 +1,36 @@
 #!/usr/bin/env python -u
 # -*- coding: utf-8 -*-
+
+# /home/alan/Projects/DeepSpeech
+# --train_files
+# /home/alan/Projects/DeepSpeech/data/ldc93s1/ldc93s1.csv
+# --dev_files
+# /home/alan/Projects/DeepSpeech/data/ldc93s1/ldc93s1.csv
+# --test_files
+# /home/alan/Projects/DeepSpeech/data/ldc93s1/ldc93s1.csv
+# --train_batch_size
+# 1
+# --dev_batch_size
+# 1
+# --test_batch_size
+# 1
+# --n_hidden
+# 494
+# --epoch
+# 10
+# --checkpoint_dir
+# "/home/alan/Projects/DeepSpeech/logs/checkpoints"
+# --log_level
+# 0
+#  --publish_wer_log
+# true
+# --wer_log_file
+# "/home/alan/Projects/DeepSpeech/logs/wer/werlog.js"
+# --export_dir
+# "/home/alan/Projects/DeepSpeech/logs/export_models/"
+# --summary_dir
+# "/home/alan/Projects/DeepSpeech/logs/summaries/"
+
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -99,6 +130,7 @@ tf.app.flags.DEFINE_integer ('checkpoint_secs',  600,         'checkpoint saving
 # Exporting
 
 tf.app.flags.DEFINE_string  ('export_dir',       '',          'directory in which exported models are stored - if omitted, the model won\'t get exported')
+#tf.app.flags.DEFINE_integer ('export_secs',  3600*6,         'export model  saving interval in seconds')
 tf.app.flags.DEFINE_integer ('export_version',   1,           'version number of the exported model')
 tf.app.flags.DEFINE_boolean ('remove_export',    False,       'wether to remove old exported models')
 
@@ -1128,7 +1160,7 @@ class TrainingCoordinator(object):
             log_debug('batches per step: %d' % batches_per_step)
             log_debug('number of jobs in train set: %d' % self._num_jobs_train)
             log_debug('number of jobs already trained in first epoch: %d' % jobs_trained)
-
+            # at the end of the epoch export the mode
             self._next_epoch()
 
     def _next_epoch(self):
@@ -1173,6 +1205,9 @@ class TrainingCoordinator(object):
         if result:
             # Increment the epoch index - shared among train and test 'state'
             self._epoch += 1
+
+        if FLAGS.export_dir:
+            export()
         return result
 
     def _end_training(self):
@@ -1488,6 +1523,9 @@ def train(server=None):
                         # Add batch to total_mean_edit_distance
                         total_mean_edit_distance += batch_report[1]
 
+
+
+
                 # Gathering job results
                 job.loss = total_loss / job.steps
                 if job.report:
@@ -1558,10 +1596,18 @@ def export():
                 shutil.rmtree(actual_FLAGS.export_dir)
         try:
             # Export serving model
+            output_graph_path = os.path.join(FLAGS.export_dir, 'output_graph.pb')
+            input_graph_name = 'input_graph.pb'
+            input_graph_path = os.path.join(FLAGS.export_dir, input_graph_name)
+            if os.path.exists(input_graph_path):
+                log_info('remove the input graph')
+                os.system("rm -r " + FLAGS.export_dir)
+
+
             model_exporter.export(FLAGS.export_dir, tf.constant(FLAGS.export_version), session)
 
-            # Export graph
-            input_graph_name = 'input_graph.pb'
+
+
             tf.train.write_graph(session.graph, FLAGS.export_dir, input_graph_name, as_text=False)
 
             # Freeze graph
@@ -1571,7 +1617,7 @@ def export():
             output_node_names = 'output_node'
             restore_op_name = 'save/restore_all'
             filename_tensor_name = 'save/Const:0'
-            output_graph_path = os.path.join(FLAGS.export_dir, 'output_graph.pb')
+
             clear_devices = False
             freeze_graph.freeze_graph(input_graph_path, input_saver_def_path,
                                       input_binary, checkpoint_path, output_node_names,
