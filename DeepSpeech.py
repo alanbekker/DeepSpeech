@@ -45,6 +45,7 @@ import shutil
 import subprocess
 import tensorflow as tf
 import time
+import pdb;bp=pdb.set_trace
 
 from six.moves import zip, range, filter, urllib, BaseHTTPServer
 from tensorflow.contrib.session_bundle import exporter
@@ -82,6 +83,8 @@ tf.app.flags.DEFINE_integer ('iters_per_worker', 1,           'number of train o
 
 # Global Constants
 # ================
+tf.app.flags.DEFINE_boolean ('inference',        False,        'wether to use y client function')
+tf.app.flags.DEFINE_string ('inference_file_path',        ' ',   'the full path to the file been recognized')
 
 tf.app.flags.DEFINE_boolean ('train',            True,        'wether to train the network')
 tf.app.flags.DEFINE_boolean ('test',             True,        'wether to test the network')
@@ -163,8 +166,10 @@ for var in ['b1', 'h1', 'b2', 'h2', 'b3', 'h3', 'b5', 'h5', 'b6', 'h6']:
 FLAGS = tf.app.flags.FLAGS
 
 def initialize_globals():
-
+    
+    
     # ps and worker hosts required for p2p cluster setup
+    bp()
     FLAGS.ps_hosts = list(filter(len, FLAGS.ps_hosts.split(',')))
     FLAGS.worker_hosts = list(filter(len, FLAGS.worker_hosts.split(',')))
 
@@ -1627,50 +1632,102 @@ def export():
             log_info('Models exported at %s' % (FLAGS.export_dir))
         except RuntimeError:
             log_error(sys.exc_info()[1])
+			
+			
+			
+			
+def client():
+    from util.audio import audiofile_to_input_vector
+    import numpy as np
+    with tf.device('/cpu:0'): 
+        #tf.reset_default_graph()
+        #session = tf.Session(config=session_config)
+
+        # Run inference
+
+        # Input tensor will be of shape [batch_size, n_steps, n_input + 2*n_input*n_context]
+        input_tensor = tf.placeholder(tf.float32, [None, None, n_input + 2*n_input*n_context], name='input_node')
+
+        seq_length = tf.placeholder(tf.int32, [None], name='input_lengths')
+
+        # Calculate the logits of the batch using BiRNN
+        logits = BiRNN(input_tensor, tf.to_int64(seq_length), no_dropout)
+
+        # Beam search decode the batch
+        decoded, _ = tf.nn.ctc_beam_search_decoder(logits, seq_length, merge_repeated=False)
+        #decoded = tf.convert_to_tensor(
+        #    [tf.sparse_tensor_to_dense(sparse_tensor) for sparse_tensor in decoded], name='output_node')
+        #84-121123-0010.flac
+        #alan_16_mono.wav
+        with tf.Session() as sess:
+            bp() 
+            saver = tf.train.Saver(tf.global_variables())
+            model_exporter = exporter.Exporter(saver)
+            # Restore variables from training checkpoint
+            # TODO: This restores the most recent checkpoint, but if we use validation to counterract
+            #       over-fitting, we may want to restore an earlier checkpoint.
+            #       over-fitting, we may want to restore an earlier checkpoint.
+            checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+            checkpoint_path = checkpoint.model_checkpoint_path
+            saver.restore(sess, checkpoint_path)
+            data = audiofile_to_input_vector(FLAGS.inference_file_path, n_input, n_context)
+            data=np.reshape(data,[-1,data.shape[0],data.shape[1]])
+            feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
+            stt=sess.run(decoded,feed_dict=feed_dict)
+            print(sparse_tensor_value_to_texts(stt[0]))
+            bp() 
+            a=3
+              
 
 
 def main(_) :
+    if FLAGS.inference:
+        initialize_globals()
+        client()
+    else:
+        initialize_globals()
+        if FLAGS.train or FLAGS.test:
+            if len(FLAGS.worker_hosts) == 0:
+                # Only one local task: this process (default case - no cluster)
+                train()
+                log_debug('Done.')
+            else:
+                # Create and start a server for the local task.
+                server = tf.train.Server(cluster, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
+                if FLAGS.job_name == 'ps':
+                    # We are a parameter server and therefore we just wait for all workers to finish
+                    # by waiting for their stop tokens.
+                    with tf.Session(server.target) as session:
+                        for worker in FLAGS.worker_hosts:
+                            log_debug('Waiting for stop token...')
+                            token = session.run(done_dequeues[FLAGS.task_index])
+                            log_debug('Got a stop token from worker %i' %token)
+                    log_debug('Session closed.')
+                elif FLAGS.job_name == 'worker':
+                    # We are a worker and therefore we have to do some work.
+                    # Assigns ops to the local worker by default.
+                    with tf.device(tf.train.replica_device_setter(
+                                   worker_device=worker_device,
+                                   cluster=cluster)):
 
-    initialize_globals()
+                        # Do the training
+                        train(server)
 
-    if FLAGS.train or FLAGS.test:
-        if len(FLAGS.worker_hosts) == 0:
-            # Only one local task: this process (default case - no cluster)
-            train()
-            log_debug('Done.')
-        else:
-            # Create and start a server for the local task.
-            server = tf.train.Server(cluster, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
-            if FLAGS.job_name == 'ps':
-                # We are a parameter server and therefore we just wait for all workers to finish
-                # by waiting for their stop tokens.
-                with tf.Session(server.target) as session:
-                    for worker in FLAGS.worker_hosts:
-                        log_debug('Waiting for stop token...')
-                        token = session.run(done_dequeues[FLAGS.task_index])
-                        log_debug('Got a stop token from worker %i' %token)
-                log_debug('Session closed.')
-            elif FLAGS.job_name == 'worker':
-                # We are a worker and therefore we have to do some work.
-                # Assigns ops to the local worker by default.
-                with tf.device(tf.train.replica_device_setter(
-                               worker_device=worker_device,
-                               cluster=cluster)):
+                log_debug('Server stopped.')
+        
 
-                    # Do the training
-                    train(server)
+        # Are we the main process?
+        if is_chief:
+            # Doing solo/post-processing work just on the main process...
+            # Exporting the model
+            if FLAGS.export_dir:
+                export()
+                
 
-            log_debug('Server stopped.')
-
-    # Are we the main process?
-    if is_chief:
-        # Doing solo/post-processing work just on the main process...
-        # Exporting the model
-        if FLAGS.export_dir:
-            export()
-
-    # Stopping the coordinator
-    COORD.stop()
+        # Stopping the coordinator
+        COORD.stop()
+        #client()
 
 if __name__ == '__main__' :
     tf.app.run()
+	

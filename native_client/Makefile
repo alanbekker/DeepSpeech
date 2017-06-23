@@ -9,6 +9,11 @@
 ### $ make -C native_client/ TARGET=rpi3 TFDIR=../../tensorflow/tensorflow/
 ### ARGS="~/Projects/DeepSpeech/logs/export_models/output_graph.pb  /home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" make run
 
+###ARGS="/home/alan/DeepSpeech/logs/libribox/export_models/output_graph.pb   /home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" make run
+
+
+###ARGS="/home/alan/DeepSpeech/logs/libribox/export_models/output_graph.pb  /home/alan/Projects/DeepSpeech/data/smoke_test/1.wav" make run
+
 
 .PHONY: clean run bindings
 

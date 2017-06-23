@@ -23,9 +23,9 @@ python3 -u DeepSpeech.py \
   --train_files "$ds_dataroot/librivox-train-clean-100.csv,$ds_dataroot/librivox-train-clean-360.csv,$ds_dataroot/librivox-train-other-500.csv" \
   --dev_files "$ds_dataroot/librivox-dev-clean.csv,$ds_dataroot/librivox-dev-other.csv" \
   --test_files "$ds_dataroot/librivox-test-clean.csv,$ds_dataroot/librivox-test-other.csv" \
-  --train_batch_size 12 \
-  --dev_batch_size 12 \
-  --test_batch_size 12 \
+  --train_batch_size 8 \
+  --dev_batch_size 8 \
+  --test_batch_size 8 \
   --learning_rate 0.0001 \
   --epoch 5 \
   --display_step 1 \
@@ -34,6 +34,8 @@ python3 -u DeepSpeech.py \
   --default_stddev 0.046875 \
   --checkpoint_dir "/home/alan/Projects/DeepSpeech/logs/libribox/checkpoints" \
   --log_level 0 \
+  --inference True \
+  --inference_file_path "/home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" \
   --publish_wer_log True \
   --wer_log_file "/home/alan/Projects/DeepSpeech/logs/libribox/WER/werlog.js" \
   --export_dir "/home/alan/Projects/DeepSpeech/logs/libribox/export_models/"  \
