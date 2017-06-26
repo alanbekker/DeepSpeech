@@ -169,7 +169,6 @@ def initialize_globals():
     
     
     # ps and worker hosts required for p2p cluster setup
-    bp()
     FLAGS.ps_hosts = list(filter(len, FLAGS.ps_hosts.split(',')))
     FLAGS.worker_hosts = list(filter(len, FLAGS.worker_hosts.split(',')))
 
@@ -1638,6 +1637,7 @@ def export():
 			
 def client():
     from util.audio import audiofile_to_input_vector
+    from util.spell import correction_hints
     import numpy as np
     with tf.device('/cpu:0'): 
         #tf.reset_default_graph()
@@ -1660,7 +1660,6 @@ def client():
         #84-121123-0010.flac
         #alan_16_mono.wav
         with tf.Session() as sess:
-            bp() 
             saver = tf.train.Saver(tf.global_variables())
             model_exporter = exporter.Exporter(saver)
             # Restore variables from training checkpoint
@@ -1674,8 +1673,12 @@ def client():
             data=np.reshape(data,[-1,data.shape[0],data.shape[1]])
             feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
             stt=sess.run(decoded,feed_dict=feed_dict)
-            print(sparse_tensor_value_to_texts(stt[0]))
-            bp() 
+            decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
+            print(decoded_sentence)
+            #bp()
+            decoded_sentence_LM=correction_hints(decoded_sentence)
+            print(decoded_sentence_LM)
+            #bp()
             a=3
               
 

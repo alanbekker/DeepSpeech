@@ -16,12 +16,17 @@ def get_model():
     return MODEL
 
 def words(text):
+
+
     "List of words in text."
     return re.findall(r'\w+', text.lower())
 
 # Load known word set
 with open('./data/spell/words.txt') as f:
     WORDS = set(words(f.read()))
+
+with open('./data/spell/hints.txt') as f:
+    WORDS_HINTS = set(words(f.read()))
 
 def log_probability(sentence):
     "Log base 10 probability of `sentence`, a list of words"
@@ -39,6 +44,23 @@ def correction(sentence):
 def candidate_words(word):
     "Generate possible spelling corrections for word."
     return (known_words([word]) or known_words(edits1(word)) or known_words(edits2(word)) or [word])
+
+def correction_hints(sentence):
+    "Most probable spelling correction for sentence."
+    layer = [(0,[])]
+    for word in words(sentence):
+        layer = [(-log_probability(node + [cword]), node + [cword]) for cword in candidate_words_hints(word) for priority, node in layer]
+        heapify(layer)
+        layer = layer[:BEAM_WIDTH]
+    return ' '.join(layer[0][1])
+
+def candidate_words_hints(word):
+    "Generate possible spelling corrections for word."
+    return (known_words_hints(edits1(word)).union(known_words_hints(edits2(word))).union(known_words_hints(word)))
+
+def known_words_hints(words):
+    "The subset of `words` that appear in the dictionary of WORDS."
+    return set(w for w in words if w in WORDS_HINTS)
 
 def known_words(words):
     "The subset of `words` that appear in the dictionary of WORDS."

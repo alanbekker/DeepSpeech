@@ -35,7 +35,7 @@ python3 -u DeepSpeech.py \
   --checkpoint_dir "/home/alan/Projects/DeepSpeech/logs/libribox/checkpoints" \
   --log_level 0 \
   --inference True \
-  --inference_file_path "/home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" \
+  --inference_file_path "/home/alan/Projects/DeepSpeech/data/ldc93s1/alan_16_mono.wav" \
   --publish_wer_log True \
   --wer_log_file "/home/alan/Projects/DeepSpeech/logs/libribox/WER/werlog.js" \
   --export_dir "/home/alan/Projects/DeepSpeech/logs/libribox/export_models/"  \
