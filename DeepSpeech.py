@@ -85,6 +85,7 @@ tf.app.flags.DEFINE_integer ('iters_per_worker', 1,           'number of train o
 # ================
 tf.app.flags.DEFINE_boolean ('inference',        False,        'wether to use y client function')
 tf.app.flags.DEFINE_string ('inference_file_path',        ' ',   'the full path to the file been recognized')
+tf.app.flags.DEFINE_integer ('top_paths',        1,   'number of paths decoded from the speech recognizer')
 
 tf.app.flags.DEFINE_boolean ('train',            True,        'wether to train the network')
 tf.app.flags.DEFINE_boolean ('test',             True,        'wether to test the network')
@@ -1637,7 +1638,7 @@ def export():
 			
 def client():
     from util.audio import audiofile_to_input_vector
-    from util.spell import correction_hints
+    from util.spell import correction_ctc_hints
     import numpy as np
     with tf.device('/cpu:0'): 
         #tf.reset_default_graph()
@@ -1654,7 +1655,7 @@ def client():
         logits = BiRNN(input_tensor, tf.to_int64(seq_length), no_dropout)
 
         # Beam search decode the batch
-        decoded, _ = tf.nn.ctc_beam_search_decoder(logits, seq_length, merge_repeated=False)
+        decoded, log_probabilities = tf.nn.ctc_beam_search_decoder(logits, seq_length, merge_repeated=False,top_paths=FLAGS.top_paths)
         #decoded = tf.convert_to_tensor(
         #    [tf.sparse_tensor_to_dense(sparse_tensor) for sparse_tensor in decoded], name='output_node')
         #84-121123-0010.flac
@@ -1663,24 +1664,22 @@ def client():
             saver = tf.train.Saver(tf.global_variables())
             model_exporter = exporter.Exporter(saver)
             # Restore variables from training checkpoint
-            # TODO: This restores the most recent checkpoint, but if we use validation to counterract
-            #       over-fitting, we may want to restore an earlier checkpoint.
-            #       over-fitting, we may want to restore an earlier checkpoint.
             checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
             checkpoint_path = checkpoint.model_checkpoint_path
             saver.restore(sess, checkpoint_path)
             data = audiofile_to_input_vector(FLAGS.inference_file_path, n_input, n_context)
             data=np.reshape(data,[-1,data.shape[0],data.shape[1]])
             feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
-            stt=sess.run(decoded,feed_dict=feed_dict)
-            decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
-            print(decoded_sentence)
-            #bp()
-            decoded_sentence_LM=correction_hints(decoded_sentence)
+            stt,probabilities=sess.run([decoded, log_probabilities],feed_dict=feed_dict)
+            decoded_sentences = [str(sparse_tensor_value_to_texts(decod)) for decod in stt ]
+
+            #decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
+            print(decoded_sentences[0])
+            bp()
+            decoded_sentence_LM=correction_ctc_hints(decoded_sentences,probabilities)
             print(decoded_sentence_LM)
-            #bp()
-            a=3
-              
+            print('end recognition')
+            bp()
 
 
 def main(_) :

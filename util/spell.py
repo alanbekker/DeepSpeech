@@ -3,6 +3,7 @@ import re
 import kenlm
 from heapq import heapify
 from six.moves import range
+import pdb;bp=pdb.set_trace
 
 # Define beam with for alt sentence search
 BEAM_WIDTH = 1024
@@ -45,6 +46,20 @@ def candidate_words(word):
     "Generate possible spelling corrections for word."
     return (known_words([word]) or known_words(edits1(word)) or known_words(edits2(word)) or [word])
 
+def correction_ctc_hints(sentences,ctc_log_probability):
+    candidates=[(0,[])]
+    i=0
+    bp()
+    for sentence in sentences:
+        score,sent=correction_hints(sentence)
+        score=score+ctc_log_probability[0][i]
+        candidates.append((score,sent)) 
+        i = +1
+    bp()
+    candidates.sort()
+    #' '.join(candidates[-1][1])
+    return  candidates[-1][1]
+
 def correction_hints(sentence):
     "Most probable spelling correction for sentence."
     layer = [(0,[])]
@@ -52,11 +67,14 @@ def correction_hints(sentence):
         layer = [(-log_probability(node + [cword]), node + [cword]) for cword in candidate_words_hints(word) for priority, node in layer]
         heapify(layer)
         layer = layer[:BEAM_WIDTH]
-    return ' '.join(layer[0][1])
+    return layer[0][0],' '.join(layer[0][1])
 
 def candidate_words_hints(word):
     "Generate possible spelling corrections for word."
-    return (known_words_hints(edits1(word)).union(known_words_hints(edits2(word))).union(known_words_hints(word)))
+    if known_words_hints([word]):
+        return known_words_hints([word])
+    else:
+        return (known_words_hints(edits1(word)).union(known_words_hints(edits2(word))))
 
 def known_words_hints(words):
     "The subset of `words` that appear in the dictionary of WORDS."
