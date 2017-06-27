@@ -49,13 +49,13 @@ def candidate_words(word):
 def correction_ctc_hints(sentences,ctc_log_probability):
     candidates=[(0,[])]
     i=0
-    bp()
+    #bp()
     for sentence in sentences:
         score,sent=correction_hints(sentence)
         score=score+ctc_log_probability[0][i]
         candidates.append((score,sent)) 
         i = +1
-    bp()
+    #bp()
     candidates.sort()
     #' '.join(candidates[-1][1])
     return  candidates[-1][1]

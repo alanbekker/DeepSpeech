@@ -395,6 +395,7 @@ def BiRNN(batch_x, seq_length, dropout):
     # clipped RELU activation and dropout.
 
     # 1st layer
+    
     b1 = variable_on_worker_level('b1', [n_hidden_1], tf.random_normal_initializer(stddev=FLAGS.b1_stddev))
     h1 = variable_on_worker_level('h1', [n_input + 2*n_input*n_context, n_hidden_1], tf.random_normal_initializer(stddev=FLAGS.h1_stddev))
     layer_1 = tf.minimum(tf.nn.relu(tf.add(tf.matmul(batch_x, h1), b1)), FLAGS.relu_clip)
@@ -1640,46 +1641,70 @@ def client():
     from util.audio import audiofile_to_input_vector
     from util.spell import correction_ctc_hints
     import numpy as np
-    with tf.device('/cpu:0'): 
-        #tf.reset_default_graph()
-        #session = tf.Session(config=session_config)
+    tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
+    #with tf.device('/cpu:0'): 
+    #tf.reset_default_graph()
+    #session = tf.Session(config=session_config)
 
-        # Run inference
+    # Run inference
 
-        # Input tensor will be of shape [batch_size, n_steps, n_input + 2*n_input*n_context]
-        input_tensor = tf.placeholder(tf.float32, [None, None, n_input + 2*n_input*n_context], name='input_node')
+    # Input tensor will be of shape [batch_size, n_steps, n_input + 2*n_input*n_context]
+    input_tensor = tf.placeholder(tf.float32, [None, None, n_input + 2*n_input*n_context], name='input_node')
 
-        seq_length = tf.placeholder(tf.int32, [None], name='input_lengths')
+    seq_length = tf.placeholder(tf.int32, [None], name='input_lengths')
 
-        # Calculate the logits of the batch using BiRNN
-        logits = BiRNN(input_tensor, tf.to_int64(seq_length), no_dropout)
+    # Calculate the logits of the batch using BiRNN
+    logits = BiRNN(input_tensor, tf.to_int64(seq_length), no_dropout)
 
-        # Beam search decode the batch
-        decoded, log_probabilities = tf.nn.ctc_beam_search_decoder(logits, seq_length, merge_repeated=False,top_paths=FLAGS.top_paths)
-        #decoded = tf.convert_to_tensor(
-        #    [tf.sparse_tensor_to_dense(sparse_tensor) for sparse_tensor in decoded], name='output_node')
-        #84-121123-0010.flac
-        #alan_16_mono.wav
-        with tf.Session() as sess:
-            saver = tf.train.Saver(tf.global_variables())
-            model_exporter = exporter.Exporter(saver)
-            # Restore variables from training checkpoint
-            checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
-            checkpoint_path = checkpoint.model_checkpoint_path
-            saver.restore(sess, checkpoint_path)
-            data = audiofile_to_input_vector(FLAGS.inference_file_path, n_input, n_context)
-            data=np.reshape(data,[-1,data.shape[0],data.shape[1]])
-            feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
-            stt,probabilities=sess.run([decoded, log_probabilities],feed_dict=feed_dict)
-            decoded_sentences = [str(sparse_tensor_value_to_texts(decod)) for decod in stt ]
+    # Beam search decode the batch
+    print('begin inference')
+    decoded, log_probabilities = tf.nn.ctc_beam_search_decoder(logits, seq_length, merge_repeated=False,top_paths=FLAGS.top_paths)
+    #decoded = tf.convert_to_tensor(
+    #    [tf.sparse_tensor_to_dense(sparse_tensor) for sparse_tensor in decoded], name='output_node')
+    #84-121123-0010.flac
+    #alan_16_mono.wav
+    run_metadata = tf.RunMetadata()
+    with tf.Session() as sess:
+        
+        saver = tf.train.Saver(tf.global_variables())
+        model_exporter = exporter.Exporter(saver)
+        # Restore variables from training checkpoint
+        checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        checkpoint_path = checkpoint.model_checkpoint_path
+        saver.restore(sess, checkpoint_path)
+        data = audiofile_to_input_vector(FLAGS.inference_file_path, n_input, n_context)
+        data=np.reshape(data,[-1,data.shape[0],data.shape[1]])
+        feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
+        import time
+        start = time.time()
+        stt,probabilities=sess.run([decoded, log_probabilities],feed_dict=feed_dict,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
+        run_metadata=run_metadata)
+        #stt=sess.run(logits,feed_dict=feed_dict,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
+        #run_metadata=run_metadata)
+        print('end inference')
+        #opts = tf.contrib.tfprof.model_analyzer.PRINT_ALL_TIMING_MEMORY.copy()
+        #opts['show_name_regexes'] = ['.*']
+        #tf.contrib.tfprof.model_analyzer.print_model_analysis(
+        #tf.get_default_graph(),
+        #run_meta=run_metadata,
+        #tfprof_cmd='op',
+        #tfprof_options=opts)
+        end = time.time()
+        print('#######################')
+        print(end - start) 
+        
+        decoded_sentences = [str(sparse_tensor_value_to_texts(decod)) for decod in stt ]
 
-            #decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
-            print(decoded_sentences[0])
-            bp()
-            decoded_sentence_LM=correction_ctc_hints(decoded_sentences,probabilities)
-            print(decoded_sentence_LM)
-            print('end recognition')
-            bp()
+        #decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
+        print(decoded_sentences[0])
+        #bp()
+        decoded_sentence_LM=correction_ctc_hints(decoded_sentences,probabilities)
+        end = time.time()
+        print('#######################')
+        print(end - start) 
+        print(decoded_sentence_LM)
+        print('end recognition')
+        #bp()
 
 
 def main(_) :
