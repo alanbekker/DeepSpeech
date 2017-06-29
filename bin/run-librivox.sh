@@ -36,7 +36,7 @@ python3 -u DeepSpeech.py \
   --log_level 0 \
   --inference True \
   --top_paths 2 \
-  --inference_file_path "/home/alan/Projects/DeepSpeech/data/ldc93s1/audio.wav" \
+  --inference_file_path "/home/alan/Projects/DeepSpeech/data/ldc93s1/alan_16_mono.wav" \
   --publish_wer_log True \
   --wer_log_file "/home/alan/Projects/DeepSpeech/logs/libribox/WER/werlog.js" \
   --export_dir "/home/alan/Projects/DeepSpeech/logs/libribox/export_models/"  \

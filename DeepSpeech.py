@@ -1633,10 +1633,80 @@ def export():
             log_info('Models exported at %s' % (FLAGS.export_dir))
         except RuntimeError:
             log_error(sys.exc_info()[1])
-			
-			
-			
-			
+
+
+class Client_inference:
+
+    def __init__(self):
+
+
+        from util.audio import audiofile_to_input_vector
+        from util.spell import correction_ctc_hints
+        import numpy as np
+        tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
+        # with tf.device('/cpu:0'):
+        # tf.reset_default_graph()
+        # session = tf.Session(config=session_config)
+
+        # Run inference
+
+        # Input tensor will be of shape [batch_size, n_steps, n_input + 2*n_input*n_context]
+        self.input_tensor = tf.placeholder(tf.float32, [None, None, n_input + 2 * n_input * n_context], name='input_node')
+
+        self.seq_length = tf.placeholder(tf.int32, [None], name='input_lengths')
+
+        # Calculate the logits of the batch using BiRNN
+        logits = BiRNN(self.input_tensor, tf.to_int64(self.seq_length), no_dropout)
+
+        # Beam search decode the batch
+        print('begin inference')
+        self.decoded, self.log_probabilities = tf.nn.ctc_beam_search_decoder(logits, self.seq_length, merge_repeated=False,
+                                                                   top_paths=FLAGS.top_paths)
+        # decoded = tf.convert_to_tensor(
+        #    [tf.sparse_tensor_to_dense(sparse_tensor) for sparse_tensor in decoded], name='output_node')
+        # 84-121123-0010.flac
+        # alan_16_mono.wav
+        run_metadata = tf.RunMetadata()
+        sess=tf.Session();
+        saver = tf.train.Saver(tf.global_variables())
+        model_exporter = exporter.Exporter(saver)
+        # Restore variables from training checkpoint
+        checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+        checkpoint_path = checkpoint.model_checkpoint_path
+        saver.restore(sess, checkpoint_path)
+        self.sess=sess
+
+    def _inference(self,inference_file_path):
+
+
+        from util.audio import audiofile_to_input_vector
+        from util.spell import correction_ctc_hints
+        import numpy as np
+        data = audiofile_to_input_vector(inference_file_path, n_input, n_context)
+        data = np.reshape(data, [-1, data.shape[0], data.shape[1]])
+        feed_dict = {self.input_tensor: data, self.seq_length: [data.shape[1]]}
+        import time
+        start = time.time()
+        stt, probabilities = self.sess.run([self.decoded, self.log_probabilities], feed_dict=feed_dict)
+        print('end inference')
+        end = time.time()
+        print('#######################')
+        print(end - start)
+
+        decoded_sentences = [str(sparse_tensor_value_to_texts(decod)) for decod in stt]
+
+        # decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
+        print(decoded_sentences[0])
+        # bp()
+        decoded_sentence_LM = correction_ctc_hints(decoded_sentences, probabilities)
+        end = time.time()
+        print('#######################')
+        print(end - start)
+        print(decoded_sentence_LM)
+        print('end recognition')
+        # bp()
+
+
 def client():
     from util.audio import audiofile_to_input_vector
     from util.spell import correction_ctc_hints
@@ -1707,10 +1777,19 @@ def client():
         #bp()
 
 
+
+
 def main(_) :
     if FLAGS.inference:
+        from SpeechBot.main_api_ai import init_bot as bot
         initialize_globals()
-        client()
+        Deep_client=Client_inference()
+        bot(Deep_client)
+        #Deep_client._inference(FLAGS.inference_file_path)
+        #Deep_client._inference(FLAGS.inference_file_path)
+
+
+
     else:
         initialize_globals()
         if FLAGS.train or FLAGS.test:
