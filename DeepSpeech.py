@@ -84,6 +84,7 @@ tf.app.flags.DEFINE_integer ('iters_per_worker', 1,           'number of train o
 # Global Constants
 # ================
 tf.app.flags.DEFINE_boolean ('inference',        False,        'wether to use y client function')
+tf.app.flags.DEFINE_boolean ('SDK',        True,        'wether to use the SDK server for inference')
 tf.app.flags.DEFINE_string ('inference_file_path',        ' ',   'the full path to the file been recognized')
 tf.app.flags.DEFINE_integer ('top_paths',        1,   'number of paths decoded from the speech recognizer')
 
@@ -168,7 +169,6 @@ FLAGS = tf.app.flags.FLAGS
 
 def initialize_globals():
     
-    
     # ps and worker hosts required for p2p cluster setup
     FLAGS.ps_hosts = list(filter(len, FLAGS.ps_hosts.split(',')))
     FLAGS.worker_hosts = list(filter(len, FLAGS.worker_hosts.split(',')))
@@ -185,7 +185,6 @@ def initialize_globals():
     # The absolute number of computing nodes - regardless of cluster or single mode
     global num_workers
     num_workers = max(1, len(FLAGS.worker_hosts))
-
     # Create a cluster from the parameter server and worker hosts.
     global cluster
     cluster = tf.train.ClusterSpec({'ps': FLAGS.ps_hosts, 'worker': FLAGS.worker_hosts})
@@ -1659,7 +1658,7 @@ class Client_inference:
         logits = BiRNN(self.input_tensor, tf.to_int64(self.seq_length), no_dropout)
 
         # Beam search decode the batch
-        print('begin inference')
+        #print('begin inference')
         self.decoded, self.log_probabilities = tf.nn.ctc_beam_search_decoder(logits, self.seq_length, merge_repeated=False,
                                                                    top_paths=FLAGS.top_paths)
         # decoded = tf.convert_to_tensor(
@@ -1671,9 +1670,11 @@ class Client_inference:
         saver = tf.train.Saver(tf.global_variables())
         model_exporter = exporter.Exporter(saver)
         # Restore variables from training checkpoint
+        bp()
         checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
         checkpoint_path = checkpoint.model_checkpoint_path
         saver.restore(sess, checkpoint_path)
+        
         self.sess=sess
 
     def _inference(self,inference_file_path):
@@ -1697,7 +1698,6 @@ class Client_inference:
 
         # decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
         print(decoded_sentences[0])
-        # bp()
         decoded_sentence_LM = correction_ctc_hints(decoded_sentences, probabilities)
         end = time.time()
         print('#######################')
@@ -1705,6 +1705,7 @@ class Client_inference:
         print(decoded_sentence_LM)
         print('end recognition')
         # bp()
+        return decoded_sentence_LM
 
 
 def client():
@@ -1780,13 +1781,56 @@ def client():
 
 
 def main(_) :
+
+    import pdb;bp=pdb.set_trace
+    import flask
+    from flask import request
+    import logging
+    from logging.handlers import RotatingFileHandler
+    rcg = flask.Flask('recognizer')
+    @rcg.route("/stt", methods=['POST'])
+    def stt():
+        #name = request.args['name']
+        my_file=request.files['sent_file']
+        transcription=Deep_client._inference(my_file)
+        print (transcription)
+        #return "Hello %s" % name
+        #return "Hello %s"  %name
+        return transcription
+    def init_logging(fileName,level = logging.WARNING):
+        rootLogger = logging.getLogger()
+        rootLogger.setLevel(level)
+        formatter = logging.Formatter(
+            "%(asctime)s [%(processName)s:%(process)d] [%(name)s] [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+            
+        stderrLogger = logging.StreamHandler()
+        stderrLogger.setFormatter(formatter)
+        rootLogger.addHandler(stderrLogger)
+        
+        fileHander = RotatingFileHandler(fileName, maxBytes=100000000, backupCount=10)
+        fileHander.setFormatter(formatter)
+        rootLogger.addHandler(fileHander)
+        
     if FLAGS.inference:
-        from SpeechBot.main_api_ai import init_bot as bot
-        initialize_globals()
-        Deep_client=Client_inference()
-        bot(Deep_client)
-        #Deep_client._inference(FLAGS.inference_file_path)
-        #Deep_client._inference(FLAGS.inference_file_path)
+        if FLAGS.SDK:
+            Deep_client=[];
+            initialize_globals()
+            Deep_client=Client_inference()  
+            init_logging('recognizer.log',level=logging.INFO)
+            logger = logging.getLogger('recognizer')
+            logger.info("Starting")
+            bp()
+            rcg.run(debug=False,host='0.0.0.0',port=8000)
+            #a=3
+            #bp()
+            #
+     
+        else:
+            #from SpeechBot.main_api_ai import init_bot as bot
+            initialize_globals()
+            Deep_client=Client_inference()
+            #bot(Deep_client)
+            transcription=Deep_client._inference(FLAGS.inference_file_path)
 
 
 
@@ -1835,5 +1879,6 @@ def main(_) :
         #client()
 
 if __name__ == '__main__' :
+    import pdb;bp=pdb.set_trace
     tf.app.run()
 	

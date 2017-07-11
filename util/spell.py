@@ -67,6 +67,8 @@ def correction_hints(sentence):
         layer = [(-log_probability(node + [cword]), node + [cword]) for cword in candidate_words_hints(word) for priority, node in layer]
         heapify(layer)
         layer = layer[:BEAM_WIDTH]
+    if layer==[]:
+        return --1000,sentence
     return layer[0][0],' '.join(layer[0][1])
 
 def candidate_words_hints(word):

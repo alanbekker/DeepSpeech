@@ -23,10 +23,11 @@ python3 -u DeepSpeech.py \
   --validation_step 1 \
   --n_hidden 494 \
   --epoch 50 \
-  --checkpoint_dir "/home/alan/Projects/DeepSpeech/logs/checkpoints" \
+  --checkpoint_dir "/home/ubuntu/DeepSpeech/logs/libribox/checkpoints" \
   --log_level 0 \
   --inference True \
-  --inference_file_path "/home/alan/Projects/DeepSpeech/data/smoke_test/LDC93S1.wav" \
+  --top_paths 1 \
+  --inference_file_path "/home/ubuntu/DeepSpeech/data/smoke_test/LDC93S1.wav" \
   --publish_wer_log True \
   --wer_log_file "/home/alan/Projects/DeepSpeech/logs/WER/werlog.js" \
   --export_dir "/home/alan/Projects/DeepSpeech/logs/export_models/"  \
