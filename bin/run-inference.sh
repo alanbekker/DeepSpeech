@@ -24,6 +24,7 @@ python3 -u DeepSpeech.py \
   --n_hidden 2048 \
   --epoch 50 \
   --checkpoint_dir "./logs/libribox/checkpoints" \
+  --load_model "./logs/libribox/checkpoints/model.ckpt-175780" \
   --log_level 0 \
   --inference True \
   --top_paths 1 \

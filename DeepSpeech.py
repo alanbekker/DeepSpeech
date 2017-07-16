@@ -85,6 +85,9 @@ tf.app.flags.DEFINE_integer ('iters_per_worker', 1,           'number of train o
 # ================
 tf.app.flags.DEFINE_boolean ('inference',        False,        'wether to use y client function')
 tf.app.flags.DEFINE_boolean ('SDK',        True,        'wether to use the SDK server for inference')
+tf.app.flags.DEFINE_string ('load_model',        "./logs/libribox/checkpoints/model.ckpt-175780",        'the path to the model to be loaded')
+
+
 tf.app.flags.DEFINE_string ('inference_file_path',        ' ',   'the full path to the file been recognized')
 tf.app.flags.DEFINE_integer ('top_paths',        1,   'number of paths decoded from the speech recognizer')
 
@@ -1640,7 +1643,7 @@ class Client_inference:
 
 
         from util.audio import audiofile_to_input_vector
-        from util.spell import correction_ctc_hints
+        from util.spell import correction_ctc_hints 
         import numpy as np
         tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
         # with tf.device('/cpu:0'):
@@ -1670,18 +1673,16 @@ class Client_inference:
         saver = tf.train.Saver(tf.global_variables())
         model_exporter = exporter.Exporter(saver)
         # Restore variables from training checkpoint
-        bp()
-        checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
-        checkpoint_path = checkpoint.model_checkpoint_path
-        saver.restore(sess, checkpoint_path)
+        #bp()
+        saver.restore(sess, FLAGS.load_model)
         
         self.sess=sess
 
-    def _inference(self,inference_file_path):
+    def _inference(self,inference_file_path,WORDS_HINTS):
 
 
         from util.audio import audiofile_to_input_vector
-        from util.spell import correction_ctc_hints
+        from util.spell import correction_ctc_hints, words
         import numpy as np
         data = audiofile_to_input_vector(inference_file_path, n_input, n_context)
         data = np.reshape(data, [-1, data.shape[0], data.shape[1]])
@@ -1698,7 +1699,7 @@ class Client_inference:
 
         # decoded_sentence=str(sparse_tensor_value_to_texts(stt[0]))
         print(decoded_sentences[0])
-        decoded_sentence_LM = correction_ctc_hints(decoded_sentences, probabilities)
+        decoded_sentence_LM = correction_ctc_hints(decoded_sentences, probabilities,WORDS_HINTS)
         end = time.time()
         print('#######################')
         print(end - start)
@@ -1787,12 +1788,20 @@ def main(_) :
     from flask import request
     import logging
     from logging.handlers import RotatingFileHandler
+    from util.spell import  words
+
     rcg = flask.Flask('recognizer')
     @rcg.route("/stt", methods=['POST'])
+    
     def stt():
         #name = request.args['name']
-        my_file=request.files['sent_file']
-        transcription=Deep_client._inference(my_file)
+        #bp()
+        #name = request.args['name']
+        audio_file=request.files['audio_file']
+        hints=request.files['hints_file']
+        WORDS_HINTS = set(words(hints.read().decode("utf-8")))
+        bp()
+        transcription=Deep_client._inference(audio_file,WORDS_HINTS)
         print (transcription)
         #return "Hello %s" % name
         #return "Hello %s"  %name
@@ -1819,7 +1828,7 @@ def main(_) :
             init_logging('recognizer.log',level=logging.INFO)
             logger = logging.getLogger('recognizer')
             logger.info("Starting")
-            bp()
+            #bp()
             rcg.run(debug=False,host='0.0.0.0',port=8000)
             #a=3
             #bp()

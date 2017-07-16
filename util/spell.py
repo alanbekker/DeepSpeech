@@ -26,8 +26,8 @@ def words(text):
 with open('./data/spell/words.txt') as f:
     WORDS = set(words(f.read()))
 
-with open('./data/spell/hints.txt') as f:
-    WORDS_HINTS = set(words(f.read()))
+#with open('./data/spell/hints.txt') as f:
+#    WORDS_HINTS = set(words(f.read()))
 
 def log_probability(sentence):
     "Log base 10 probability of `sentence`, a list of words"
@@ -46,10 +46,13 @@ def candidate_words(word):
     "Generate possible spelling corrections for word."
     return (known_words([word]) or known_words(edits1(word)) or known_words(edits2(word)) or [word])
 
-def correction_ctc_hints(sentences,ctc_log_probability):
+def correction_ctc_hints(sentences,ctc_log_probability,hints):
+    bp()
+    global WORDS_HINTS
+    WORDS_HINTS = hints
     candidates=[(0,[])]
     i=0
-    #bp()
+    
     for sentence in sentences:
         score,sent=correction_hints(sentence)
         score=score+ctc_log_probability[0][i]
@@ -64,9 +67,11 @@ def correction_hints(sentence):
     "Most probable spelling correction for sentence."
     layer = [(0,[])]
     for word in words(sentence):
+        #bp()
         layer = [(-log_probability(node + [cword]), node + [cword]) for cword in candidate_words_hints(word) for priority, node in layer]
         heapify(layer)
         layer = layer[:BEAM_WIDTH]
+    bp()
     if layer==[]:
         return --1000,sentence
     return layer[0][0],' '.join(layer[0][1])
@@ -76,9 +81,11 @@ def candidate_words_hints(word):
     if known_words_hints([word]):
         return known_words_hints([word])
     else:
-        return (known_words_hints(edits1(word)).union(known_words_hints(edits2(word))))
+        #bp()
+        return (known_words_hints(edits1(word)).union(known_words_hints(edits2(word)))or [word])
 
 def known_words_hints(words):
+    #bp()
     "The subset of `words` that appear in the dictionary of WORDS."
     return set(w for w in words if w in WORDS_HINTS)
 
