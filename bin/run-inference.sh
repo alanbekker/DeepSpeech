@@ -27,7 +27,7 @@ python3 -u DeepSpeech.py \
   --load_model "./logs/libribox/checkpoints/model.ckpt-175780" \
   --log_level 0 \
   --inference True \
-  --top_paths 1 \
+  --top_paths 100 \
   --inference_file_path "/home/ubuntu/DeepSpeech/data/smoke_test/LDC93S1.wav" \
   --publish_wer_log True \
   --wer_log_file "/home/alan/Projects/DeepSpeech/logs/WER/werlog.js" \

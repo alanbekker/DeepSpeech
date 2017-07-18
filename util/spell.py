@@ -6,7 +6,7 @@ from six.moves import range
 import pdb;bp=pdb.set_trace
 
 # Define beam with for alt sentence search
-BEAM_WIDTH = 1024
+BEAM_WIDTH = 2000
 MODEL = None
 
 # Lazy-load language model (TED corpus, Kneser-Ney, 4-gram, 30k word LM)
@@ -47,7 +47,7 @@ def candidate_words(word):
     return (known_words([word]) or known_words(edits1(word)) or known_words(edits2(word)) or [word])
 
 def correction_ctc_hints(sentences,ctc_log_probability,hints):
-    bp()
+    #bp()
     global WORDS_HINTS
     WORDS_HINTS = hints
     candidates=[(0,[])]
@@ -71,7 +71,7 @@ def correction_hints(sentence):
         layer = [(-log_probability(node + [cword]), node + [cword]) for cword in candidate_words_hints(word) for priority, node in layer]
         heapify(layer)
         layer = layer[:BEAM_WIDTH]
-    bp()
+    #bp()
     if layer==[]:
         return --1000,sentence
     return layer[0][0],' '.join(layer[0][1])

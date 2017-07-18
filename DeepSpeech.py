@@ -1690,6 +1690,8 @@ class Client_inference:
         import time
         start = time.time()
         stt, probabilities = self.sess.run([self.decoded, self.log_probabilities], feed_dict=feed_dict)
+        #bp()
+        print(probabilities)
         print('end inference')
         end = time.time()
         print('#######################')
@@ -1749,7 +1751,8 @@ def client():
         feed_dict = {input_tensor: data,seq_length:[data.shape[1]]}
         import time
         start = time.time()
-        stt,probabilities=sess.run([decoded, log_probabilities],feed_dict=feed_dict,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
+        stt,probabilities=sess.run([decoded, log_probabilities],feed_dict=feed_dict,top_paths=FLAGS.top_paths,
+        options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
         run_metadata=run_metadata)
         #stt=sess.run(logits,feed_dict=feed_dict,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
         #run_metadata=run_metadata)
@@ -1800,7 +1803,7 @@ def main(_) :
         audio_file=request.files['audio_file']
         hints=request.files['hints_file']
         WORDS_HINTS = set(words(hints.read().decode("utf-8")))
-        bp()
+        #bp()
         transcription=Deep_client._inference(audio_file,WORDS_HINTS)
         print (transcription)
         #return "Hello %s" % name
